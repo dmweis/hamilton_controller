@@ -6,9 +6,9 @@ use log::*;
 use std::collections::HashMap;
 use std::sync::{ Mutex, Arc };
 
-
 use kiss3d::window::Window;
-use nalgebra::{ Point3, Point2 };
+use nalgebra::{Isometry3, Translation3, UnitQuaternion, Point3};
+
 
 
 fn subscribe(points: Arc<Mutex<HashMap<i32, Pose>>>) {
@@ -54,21 +54,37 @@ fn subscribe(points: Arc<Mutex<HashMap<i32, Pose>>>) {
     });
 }
 
+fn add_ground_plane(window: &mut Window) {
+    let size = 0.5;
+    for i in 0..4 {
+        for j in 0..4 {
+            let mut cube = window.add_cube(size, size, 0.001);
+            if (i + j) % 2 == 0 {
+                cube.set_color(1.0, 0.3, 0.2);
+            } else {
+                cube.set_color(0.5, 0.04, 0.17);
+            }
+            let distance = (1_f32.powi(2) + 1_f32.powi(2)).sqrt();
+            let x_ind = j as f32 - distance;
+            let y_ind = i as f32 - distance;
+            let trans = Isometry3::from_parts(
+                Translation3::new(size * x_ind, 0.0, size * y_ind),
+                UnitQuaternion::from_euler_angles(0.0, -1.57, -1.57),
+            );
+            cube.set_local_transformation(trans);
+        }
+    }
+}
+
+
 fn main() {
     let points = Arc::new(Mutex::new(HashMap::new()));
     subscribe(points.clone());
     let mut window = Window::new("point_cloud_view");
     window.set_background_color(0.5, 0.5, 0.5);
-    window.set_point_size(3.0);
+    window.set_point_size(10.0);
 
-    let mut c = window.add_cube(1.0, 1.0, 1.0);
-    c.set_color(1.0, 0.0, 0.0);
-    
-    // c.set_points_size(10.0);
-    // c.set_lines_width(1.0);
-    // c.set_surface_rendering_activation(false);
-    let mut c = window.add_circle(20.0);
-    c.set_color(1.0, 1.0, 0.0);
+    add_ground_plane(&mut window);
 
     while window.render() {
         let dict = points.lock().unwrap();
