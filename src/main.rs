@@ -1,3 +1,4 @@
+mod hamilton_remote;
 mod openvr_adaptor;
 
 use kiss3d::window::Window;
