@@ -4,6 +4,8 @@ mod openvr_adaptor;
 use kiss3d::window::Window;
 use nalgebra as na;
 
+use gilrs::{Button, Event, Gilrs};
+
 fn add_ground_plane(window: &mut Window) {
     let size = 0.5;
     for i in 0..4 {
@@ -27,14 +29,29 @@ fn add_ground_plane(window: &mut Window) {
 }
 
 fn main() {
-    let mut window = Window::new("point_cloud_view");
-    let mut openvr = openvr_adaptor::VrDeviceManager::new().unwrap();
+    let mut window = Window::new("Hamilton viewer");
+    // let mut openvr = openvr_adaptor::VrDeviceManager::new().unwrap();
+    let mut gilrs = Gilrs::new().unwrap();
+    let mut remote =
+        hamilton_remote::HamitlonRemoteController::new(String::from("http://pi42.local:5001"));
 
     window.set_background_color(0.5, 0.5, 0.5);
 
     add_ground_plane(&mut window);
 
     while window.render() {
-        openvr.update(&mut window);
+        while gilrs.next_event().is_some() {}
+        let (_, gamepad) = gilrs.gamepads().next().unwrap();
+        let deadzone = 0.2;
+        if gamepad.is_connected() {
+            let x = gamepad.value(gilrs::Axis::LeftStickY);
+            let y = gamepad.value(gilrs::Axis::LeftStickX);
+            let yaw = gamepad.value(gilrs::Axis::RightStickX);
+            if x.abs() > deadzone || y.abs() > deadzone || yaw.abs() > deadzone {
+                remote.send_command(x, -y, -yaw);
+            } else {
+                remote.send_command(0., 0., 0.);
+            }
+        }
     }
 }

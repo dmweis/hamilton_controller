@@ -14,26 +14,30 @@ pub mod hamilton {
 pub struct HamitlonRemoteController {
     sender: Option<Sender<hamilton::MoveRequest>>,
     join_handle: Option<JoinHandle<()>>,
+    handle: tokio::runtime::Handle,
 }
 
 impl HamitlonRemoteController {
     pub fn new(address: String) -> Self {
         let (tx, rx) = mpsc::channel(10);
-        let handle = thread::spawn(|| {
-            create_remote(rx, address).unwrap();
+        let rt = Runtime::new().unwrap();
+        let handle = rt.handle().clone();
+        let join_handle = thread::spawn(|| {
+            create_remote(rx, address, rt).unwrap();
         });
         HamitlonRemoteController {
             sender: Some(tx),
-            join_handle: Some(handle),
+            join_handle: Some(join_handle),
+            handle,
         }
     }
 
-    pub fn send_command(&self, x: f32, y: f32, yaw: f32) {
-        if let Some(ref sender) = self.sender {
-            sender
-                .blocking_send(hamilton::MoveRequest {
+    pub fn send_command(&mut self, x: f32, y: f32, yaw: f32) {
+        if let Some(ref mut sender) = self.sender {
+            self.handle
+                .block_on(sender.send(hamilton::MoveRequest {
                     command: Some(hamilton::MoveCommand { x, y, yaw }),
-                })
+                }))
                 .unwrap();
         }
     }
@@ -52,9 +56,13 @@ impl Drop for HamitlonRemoteController {
     }
 }
 
-fn create_remote(receiver: Receiver<hamilton::MoveRequest>, address: String) -> Result<()> {
-    let rt = Runtime::new()?;
-    rt.block_on(async move {
+fn create_remote(
+    receiver: Receiver<hamilton::MoveRequest>,
+    address: String,
+    rt: Runtime,
+) -> Result<()> {
+    let mut rt = rt;
+    rt.block_on(async {
         let receiver = receiver;
         let mut hamilton_client = HamiltonRemoteClient::connect(address).await?;
         hamilton_client.move_stream(Request::new(receiver)).await?;
