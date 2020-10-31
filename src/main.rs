@@ -4,7 +4,7 @@ mod openvr_adaptor;
 use kiss3d::window::Window;
 use nalgebra as na;
 
-use gilrs::{Button, Event, Gilrs};
+use gilrs::Gilrs;
 
 fn add_ground_plane(window: &mut Window) {
     let size = 0.5;
@@ -29,8 +29,10 @@ fn add_ground_plane(window: &mut Window) {
 }
 
 fn main() {
+    let white = na::Point3::new(1.0, 1.0, 1.0);
+
     let mut window = Window::new("Hamilton viewer");
-    // let mut openvr = openvr_adaptor::VrDeviceManager::new().unwrap();
+    let mut openvr = openvr_adaptor::VrDeviceManager::new().unwrap();
     let mut gilrs = Gilrs::new().unwrap();
     let mut remote =
         hamilton_remote::HamitlonRemoteController::new(String::from("http://pi42.local:5001"));
@@ -40,7 +42,10 @@ fn main() {
     add_ground_plane(&mut window);
 
     while window.render() {
+        openvr.update(&mut window);
+        // force consume all events
         while gilrs.next_event().is_some() {}
+        // get primary gamepad
         let (_, gamepad) = gilrs.gamepads().next().unwrap();
         let deadzone = 0.2;
         if gamepad.is_connected() {
@@ -53,5 +58,13 @@ fn main() {
                 remote.send_command(0., 0., 0.);
             }
         }
+
+        window.draw_text(
+            &openvr.display_data(),
+            &na::Point2::new(1.0, 1.0),
+            50.0,
+            &kiss3d::text::Font::default(),
+            &white,
+        );
     }
 }

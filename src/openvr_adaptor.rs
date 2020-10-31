@@ -5,8 +5,18 @@ use nalgebra as na;
 use anyhow::Result;
 use std::collections::HashMap;
 
+const RED: (f32, f32, f32) = (1.0, 0.0, 0.0);
+const GREEN: (f32, f32, f32) = (0.0, 1.0, 0.0);
+const BLUE: (f32, f32, f32) = (0.0, 0.0, 1.0);
+const PURPLE: (f32, f32, f32) = (1.0, 0.0, 1.0);
+const YELLOW: (f32, f32, f32) = (1.0, 1.0, 0.0);
+const AQUA: (f32, f32, f32) = (0.0, 1.0, 1.0);
+
+#[derive(Debug, Eq, PartialEq)]
 enum VrDeviceClass {
     Controller,
+    LeftController,
+    RightController,
     Tracker,
     HMD,
     Sensor,
@@ -39,12 +49,15 @@ impl VrDevice {
         self.class = class;
         let trans = na::Isometry3::from_parts(self.position.coords.into(), self.rotation);
         self.display_node.set_local_transformation(trans);
-        match self.class {
-            VrDeviceClass::Controller => self.display_node.set_color(0.0, 0.0, 1.0),
-            VrDeviceClass::Tracker => self.display_node.set_color(0.0, 1.0, 0.0),
-            VrDeviceClass::HMD => self.display_node.set_color(1.0, 1.0, 0.0),
-            _ => self.display_node.set_color(1.0, 0.0, 0.0),
-        }
+        let (r, g, b) = match self.class {
+            VrDeviceClass::LeftController => GREEN,
+            VrDeviceClass::RightController => BLUE,
+            VrDeviceClass::Controller => YELLOW,
+            VrDeviceClass::Tracker => AQUA,
+            VrDeviceClass::HMD => PURPLE,
+            _ => RED,
+        };
+        self.display_node.set_color(r, g, b);
         self.display_node.set_visible(self.tracked);
     }
 }
@@ -82,7 +95,23 @@ impl VrDeviceManager {
             let tracked = self.openvr_system.is_tracked_device_connected(index);
             let class = match self.openvr_system.tracked_device_class(index) {
                 openvr::TrackedDeviceClass::HMD => VrDeviceClass::HMD,
-                openvr::TrackedDeviceClass::Controller => VrDeviceClass::Controller,
+                openvr::TrackedDeviceClass::Controller => {
+                    if let Some(role) = self
+                        .openvr_system
+                        .get_controller_role_for_tracked_device_index(index)
+                    {
+                        match role {
+                            openvr::TrackedControllerRole::LeftHand => {
+                                VrDeviceClass::LeftController
+                            }
+                            openvr::TrackedControllerRole::RightHand => {
+                                VrDeviceClass::RightController
+                            }
+                        }
+                    } else {
+                        VrDeviceClass::Controller
+                    }
+                }
                 openvr::TrackedDeviceClass::GenericTracker => VrDeviceClass::Tracker,
                 openvr::TrackedDeviceClass::TrackingReference => VrDeviceClass::Sensor,
                 _ => VrDeviceClass::Other,
@@ -90,6 +119,24 @@ impl VrDeviceManager {
             let pose = pose.device_to_absolute_tracking();
             device_entry.update(tracked, pose, class);
         }
+    }
+
+    pub fn display_data(&self) -> String {
+        let mut output = String::new();
+        for (id, device) in &self.devices {
+            if device.tracked {
+                let color = match device.class {
+                    VrDeviceClass::LeftController => "green",
+                    VrDeviceClass::RightController => "blue",
+                    VrDeviceClass::Controller => "yellow",
+                    VrDeviceClass::Tracker => "aqua",
+                    VrDeviceClass::HMD => "purple",
+                    _ => "red",
+                };
+                output.push_str(&format!("{} -> {:?} -> {}\n", id, device.class, color));
+            }
+        }
+        output
     }
 }
 
