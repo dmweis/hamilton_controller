@@ -674,6 +674,7 @@ dependencies = [
  "nalgebra",
  "openvr",
  "palette",
+ "pid_control",
  "prost",
  "rumqtt",
  "serde",
@@ -1459,6 +1460,12 @@ checksum = "c00cf8b9eafe68dde5e9eaa2cef8ee84a9336a47d566ec55ca16589633b65af7"
 dependencies = [
  "siphasher",
 ]
+
+[[package]]
+name = "pid_control"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1f19232648e4150e8b8e1d7602cc3895cf5563a198baf242b889190f1433f71"
 
 [[package]]
 name = "pin-project"

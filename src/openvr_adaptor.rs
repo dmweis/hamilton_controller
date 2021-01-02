@@ -12,8 +12,21 @@ const PURPLE: (f32, f32, f32) = (1.0, 0.0, 1.0);
 const YELLOW: (f32, f32, f32) = (1.0, 1.0, 0.0);
 const AQUA: (f32, f32, f32) = (0.0, 1.0, 1.0);
 
+fn add_orientation(node: &mut SceneNode) {
+    let length = 0.2;
+    let mut x_arrow = node.add_cube(length, 0.01, 0.01);
+    let mut y_arrow = node.add_cube(0.01, length, 0.01);
+    let mut z_arrow = node.add_cube(0.01, 0.01, length);
+    x_arrow.set_color(1.0, 0.0, 0.0);
+    x_arrow.append_translation(&na::Translation3::new(length * 0.5, 0.0, 0.0));
+    y_arrow.set_color(0.0, 1.0, 0.0);
+    y_arrow.append_translation(&na::Translation3::new(0.0, length * 0.5, 0.0));
+    z_arrow.set_color(0.0, 0.0, 1.0);
+    z_arrow.append_translation(&na::Translation3::new(0.0, 0.0, length * 0.5));
+}
+
 #[derive(Debug, Eq, PartialEq)]
-enum VrDeviceClass {
+pub enum VrDeviceClass {
     Controller,
     LeftController,
     RightController,
@@ -23,10 +36,10 @@ enum VrDeviceClass {
     Other,
 }
 
-struct VrDevice {
-    tracked: bool,
-    position: na::Point3<f32>,
-    rotation: na::UnitQuaternion<f32>,
+pub struct VrDevice {
+    pub tracked: bool,
+    pub position: na::Point3<f32>,
+    pub rotation: na::UnitQuaternion<f32>,
     class: VrDeviceClass,
     display_node: SceneNode,
 }
@@ -49,7 +62,7 @@ impl VrDevice {
         self.class = class;
         let trans = na::Isometry3::from_parts(self.position.coords.into(), self.rotation);
         self.display_node.set_local_transformation(trans);
-        let (r, g, b) = match self.class {
+        let (_r, _g, _b) = match self.class {
             VrDeviceClass::LeftController => GREEN,
             VrDeviceClass::RightController => BLUE,
             VrDeviceClass::Controller => YELLOW,
@@ -57,7 +70,7 @@ impl VrDevice {
             VrDeviceClass::HMD => PURPLE,
             _ => RED,
         };
-        self.display_node.set_color(r, g, b);
+        // self.display_node.set_color(r, g, b);
         self.display_node.set_visible(self.tracked);
     }
 }
@@ -89,7 +102,8 @@ impl VrDeviceManager {
         for (index, pose) in poses.iter().enumerate() {
             let index = index as u32;
             let device_entry = self.devices.entry(index).or_insert_with(|| {
-                let node = window.add_cube(0.2, 0.2, 0.2);
+                let mut node = window.add_group();
+                add_orientation(&mut node);
                 VrDevice::new(node)
             });
             let tracked = self.openvr_system.is_tracked_device_connected(index);
@@ -138,6 +152,18 @@ impl VrDeviceManager {
         }
         output
     }
+
+    /// Get first device found with expected class
+    ///
+    /// If there are multiple devices with same class the first one is returned
+    pub fn get_device_by_class(&self, class: VrDeviceClass) -> Option<&VrDevice> {
+        for device in self.devices.values() {
+            if device.class == class {
+                return Some(device);
+            }
+        }
+        None
+    }
 }
 
 trait OpenVRPose {
@@ -172,6 +198,7 @@ impl OpenVRPose for [[f32; 4]; 3] {
         let j = j.copysign(m[0][2] - m[2][0]);
         let k = k.copysign(m[1][0] - m[0][1]);
         na::UnitQuaternion::from_quaternion(na::Quaternion::new(w, i, j, k))
+        // * na::Rotation3::from_axis_angle(&na::Vector3::z_axis(), 90_f32.to_radians())
     }
 }
 

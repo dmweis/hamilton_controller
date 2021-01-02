@@ -32,14 +32,13 @@ impl HamitlonRemoteController {
         }
     }
 
-    pub fn send_command(&mut self, x: f32, y: f32, yaw: f32) {
+    pub fn send_command(&mut self, x: f32, y: f32, yaw: f32) -> Result<()> {
         if let Some(ref mut sender) = self.sender {
-            self.handle
-                .block_on(sender.send(hamilton::MoveRequest {
-                    command: Some(hamilton::MoveCommand { x, y, yaw }),
-                }))
-                .unwrap();
+            self.handle.block_on(sender.send(hamilton::MoveRequest {
+                command: Some(hamilton::MoveCommand { x, y, yaw }),
+            }))?;
         }
+        Ok(())
     }
 }
 
