@@ -1,5 +1,5 @@
 use anyhow::Result;
-use hamilton::hamilton_remote_client::HamiltonRemoteClient;
+use hamilton_service::hamilton_remote_client::HamiltonRemoteClient;
 use std::thread;
 use std::thread::JoinHandle;
 use tokio::runtime::Runtime;
@@ -7,12 +7,12 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tonic::Request;
 
-pub mod hamilton {
-    tonic::include_proto!("hamilton");
+pub mod hamilton_service {
+    tonic::include_proto!("hamilton_service");
 }
 
 pub struct HamitlonRemoteController {
-    sender: Option<Sender<hamilton::MoveRequest>>,
+    sender: Option<Sender<hamilton_service::MoveRequest>>,
     join_handle: Option<JoinHandle<()>>,
     handle: tokio::runtime::Handle,
 }
@@ -34,9 +34,10 @@ impl HamitlonRemoteController {
 
     pub fn send_command(&mut self, x: f32, y: f32, yaw: f32) -> Result<()> {
         if let Some(ref mut sender) = self.sender {
-            self.handle.block_on(sender.send(hamilton::MoveRequest {
-                command: Some(hamilton::MoveCommand { x, y, yaw }),
-            }))?;
+            self.handle
+                .block_on(sender.send(hamilton_service::MoveRequest {
+                    command: Some(hamilton_service::MoveCommand { x, y, yaw }),
+                }))?;
         }
         Ok(())
     }
@@ -56,7 +57,7 @@ impl Drop for HamitlonRemoteController {
 }
 
 fn create_remote(
-    receiver: Receiver<hamilton::MoveRequest>,
+    receiver: Receiver<hamilton_service::MoveRequest>,
     address: String,
     rt: Runtime,
 ) -> Result<()> {
